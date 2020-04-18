@@ -1,0 +1,148 @@
+---
+title: "WAREHOUSE STRATEGY"
+output: pdf_document
+date: 17/04/2020
+fontsize: 11pt
+documentclass: article
+classoption: a4paper
+geometry: margin=3cm
+author: "Richard Lawton"
+header-includes:
+  - \usepackage{float}
+  - \usepackage{array}
+  - \usepackage{tabu}
+  - \usepackage{booktabs}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=6, fig.height=4)
+```
+
+`r paste("Updated on", Sys.Date())`
+\
+\
+
+## INTRODUCTION
+
+The efficiency (and hence cost) of a warehousing operation is directly related to the ease of placement and retrieval of goods. This investigation sets up a notional warehouse and investigates the effect of a range of storage location strategies through Monte Carlo simulation. Is the optimum strategy to place product randomly, or should certain locations be reserved for certain products? The model is designed to simulate a multi-product, bulk warehouse that handles only single pallet loads: no breaking of pallets occurs.
+
+
+## METHODOLOGY
+
+### Warehouse geometry
+
+The warehouse configuration was set for this project as an array of 10 aisles, 5 tiers high and holding 100 storage locations (bins) along each aisle. (These dimensions are parameterised in the model and could be altered.)
+
+Within this geometry, goods receiving is conceived to be located at one end of the first aisle and despatch at the far end of the same aisle. The baseline (easiest) journey for placing a pallet then consists of travel from goods receiving down aisle 1 to the bin location. For despatch the pallet has to travel down the remainder of the aisle to the far end. Whichever bin it is stored in, the pallet will ultimately travel the full length of the aisle. All bins at a given level on a given aisle will thus have equal ease of access.
+
+Bins in other aisles beyond aisle 1 will necessitate a greater distance of travel, because lateral movements will also be involved, increasing with number of the aisle. Likewise upper tiers will incur additional vertical travel. A marginal cost is therefore associated with every bin location, calculated as:
+
+$$cost(n_{aisle}, n_{tier})=n_{aisle}-1+h(n_{tier}-1)$$
+where $h$ is a parameter weighting the cost of vertical movement relative to horizontal. For this simulation $h$ was set at 1.
+
+This geometry gives rise to the following frequency of bin costs:
+
+\
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+  wh_graph
+```
+\
+
+### Prouct demand
+
+The focus of the investigation lies in strategies for handling products with different demand levels. Should more popular products be placed in cheaper locations? It seems intuitively correct, since more movements will then take place in lower cost bins. In order to model this, we created a range of products (in this case 100) with product demand distributed along a gamma curve. This skewed distribution was selected to give a lower limit cut-off at 0 (a product cannot have negative demand!), a peak of products with moderate demand and a tail towards higher demand products. The demands were randomised, and regenerated for each run of the model. A sample distribution is as shown below:
+
+\
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+  pr_graph
+```
+\
+
+Product stock was initially placed in the warehouse in porportion to the product demand, at a level of 80% loading to capacity (again parameterised for future investigation).
+
+### Monte Carlo simulation
+
+Once the warehouse was constructed, 10000 stock movements of a single pallet were simulated on a randomised basis. The movements were placement or despatch (on a 50/50 probability), with product chosen randomly in proportion to the product demand. The possibilities of stockouts or stock overflows were catered for, but never encountered. With each movement the bin cost was accumulated towards an overall total.
+
+### Stock placement strategies
+
+1.) Baseline
+
+Stock is initially placed in random order in the warehouse, filling the bin locations from the lowest cost up. Subsequent incoming stock is placed in the lowest cost empty bin.
+
+2.) Prioritised
+
+This scheme envisages prioritising higher demand products: the highest demand products are given exclusive access to the lowest cost bins, followed by the second highest demand product etc. Incoming product may not be placed in a bin reserved for a product with higher demand, but is placed in the lowest cost bin to which it is allowed access.
+
+3.) Fast access
+
+This scheme envisages a fast access zone consisting of fixed number of low cost bins reserved for each product, regardless of demand. For these simulations the number of fast-access bins was set at 5. Stock arriving is placed in the fast-access bins reserved for the product in question, or, if they are full already, in the lowest cost bin available beyond the fast access zone.
+
+### Stock withdrawal strategies
+
+1.) Baseline
+
+The pallet of product in the lowest cost bin is selected for despatch.
+
+2.) FIFO
+
+In order to maintain stock rotation, the pallet of product that was placed first is always selected for despatch. If two or more pallets have the same placement cycle number (which can only occur with initial loading at cycle=0) then the lowest cost bin is selected.
+
+3.) Modified FIFO
+
+FIFO turns out to be an expensive strategy, as we shall see. Modified FIFO is designed to moderate the cost, while maintaining a level of stock rotation. A notional age limit is set beyond which stock must be rotated. For this simulation the limit was set at 2000 cycles. Stock that is old, but still under this limit may be left sitting in a high cost location while fresher stock drawn from low cost bins, but stock over this limit must be drawn for despatch.
+
+The logic of this can be understood if we consider a very simple warehouse of one product with $n_0$ bins at cost = $c$, and $n_1$ bins at cost = 1. All the bins are initially stocked. We then envisage repeated cycles of drawing one unit and then restocking with one unit.
+
+With the baseline strategy the product will always be drawn and replaced in the zero cost bins. The net average cost is therefore zero, but no stock rotation occurs and the product in the higher cost bins will never move.
+
+With the FIFO strategy, the first $n_0$ cycles will draw from the zero cost bins, but then the oldest stock will be located in the higher cost bins, and the next $n_1$ cycles will draw from the high cost bins. The oldest product is now located in the low cost bins, and the whole sequence will be repeated. The net average cost will therefore be total cost incurred/number of cycles $= cn_1/(n_0+n_1)$.
+
+With the modified FIFO strategy with an age limit $A$, the first $A$ cycles will draw from the zero cost bins, then the next $n_1$ cycles will clear the high cost bins. Then the whole sequence is repeated. The net average cost will therefore be $cn_1/(A+n_1)$. By making $A$ considerably larger than $n_0$ it is clear that we can cut down the cost of stock rotation.
+
+## RESULTS
+
+A range of strategies was simulated over 10,000 cycles with randomised product demand distributions and product movements. Repeat runs of a given strategy with different starting points showed little variation. The results shown here are therefore for single runs.
+
+### No stock rotation
+
+The key goal is to maximize the number of transactions taking place in low cost bins (and therefore minimize the number of transactions from high cost bins). The distributions achieved under three strategies was as follows:
+\
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+  bg1
+```
+\
+
+The baseline strategy (shown in red) actually works the best - always look for the lowest cost bin. The accumulated cost over 10,000 cycles was 8605
+
+The prioritisation strategy (blue) worked really badly! The total cost came to 59972 - nearly 7 times the cost of the baseline. (Bear in mind these are *excess* costs: even the "zero" cost bins have some travel requirements.) A little reflection will explain why our intuition here was so wrong - when we reserve bins for high demand product, we are reserving a high number of bins. Under this strategy a large number of low cost bins will be filled with product that never needs to move, since the high demand can be met by repeatedly filling a small number of bins.The lower demand product, on the other hand, will always have to move from more expensive bins.
+
+The fast access strategy (green) was designed to correct this error, and the results are considerably better than prioritisation: total cost = 16712. But this is still nearly double the cost of the baseline strategy, for a much more complex system.
+
+### Including stock rotation
+
+With stock rotation the results looked markedly different:
+\
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+  bg2
+```
+\
+
+FIFO imposed on our baseline model (red) increases the cost dramatically to 53056. Clearly there is a huge cost attached to strict stock rotation. The frequency curve has shifted strongly down and to the right (more expensive bins).The fast access model (blue) fared marginally better at a cost of 51414, but follows the same form as the baseline curve. It is doubtful whether this gain is significant.
+
+Our modified FIFO model (with age limit set to 2000 cycles) fares much better, shifting the curves back to the left. The baseline model (green) pulls back to a cost of 21764, and the fast access model (purple) to 32841.
+
+## CONCLUSIONS
+
+The conclusions are then twofold:
+
+1.) The simple policy of using the cheapest (= easiest access) bin location cannot be improved by any more sophisticated strategy
+
+2.) Stock rotation is undoubtedly necessary, but a strict FIFO strategy carries a very high cost. A better plan is to allow some ageing of stock.
+
+The model is simple. Can it be developed further? One obvious adaptation is that product is unlikely to arrive randomly in single pallets; rather it will arrive in a container of 20 pallets, which may affect the outcomes of the model. Is the loading factor of 80% realistic? How would changing this affect the model? Does stock level really follow demand level? Ideally the model should be tailored to the specifics of a real warehouse operation, for which real-world data is required.

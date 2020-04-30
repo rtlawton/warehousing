@@ -1,12 +1,8 @@
 ---
-title: "WAREHOUSE STRATEGY"
-output: pdf_document
-date: 17/04/2020
-fontsize: 11pt
-documentclass: article
-classoption: a4paper
-geometry: margin=3cm
+title: "Warehouse"
 author: "Richard Lawton"
+date: "29/04/2020"
+output: html_document
 header-includes:
   - \usepackage{float}
   - \usepackage{array}
